@@ -1,0 +1,737 @@
+#!/bin/bash -e
+
+### Clear screen
+
+#clear
+
+### Version
+
+version=0.2.1
+
+### Last modified
+
+lastmodified="Last modified ks 17 oct 2018"
+
+### Free to use, modify, and distribute
+
+freetouse="Free to use, modify, and distribute."
+
+### Date format
+
+mydate=$(date '+%Y-%m-%d.%H:%M:%S')
+
+### Linux-Mac unifier. For Mac users, you need brew and gnused installed.
+
+unix=$(uname)
+if [ $unix == "Linux" ]
+then
+	sedtype=sed
+	if [ ! -z $(which okular) ]
+	then
+		pdfopener=$(which okular)
+	elif [ ! -z $(which evince) ]
+	then
+		pdfopener=$(which evince)
+	else
+		pdfopener=xdg-open
+	fi
+else
+	sedtype=gsed
+	pdfopener=open
+fi
+
+### Dropbox unifier
+
+if [ -d $HOME/Dropbox ]
+then
+	dropbox="$HOME/Dropbox"
+else
+	dropbox="$HOME"
+fi
+
+file=$dropbox/.todo_items
+filebug=$dropbox/.todo_bug_report
+classhead=$dropbox/.todo_class
+classlist=$dropbox/.todo_class_list
+totex=$dropbox/.todo_to_tex
+texfile=$dropbox/todo_list.tex
+pdffile=$dropbox/todo_list.pdf
+
+touch $file
+touch $filebug
+touch $classlist
+touch $totex
+touch $texfile
+
+### Directory of 'todo'
+
+dir=$(echo $0)
+
+### Base directory of 'todo'
+
+basedir=$(dirname $0)
+
+### Commands 
+
+if [ -z "$1" ]
+then
+	echo "Usage:"
+			echo "	Add item..............................todo add item"
+			echo "	Add single item with multiple words...todo add my item"
+			echo "	Check item as done....................todo did item"
+			echo "	Check all items as done...............todo did all"
+			echo "	Uncheck item..........................todo undo item"
+			echo "	Uncheck all items.....................todo undo all"
+			echo "	Remove item...........................todo remove item"
+			echo "	Remove multiple items.................todo remove item-1 item-2 item-3"
+			echo "	Remove items containing common word...todo remove common"
+			echo "	Replace item-1 with item-2............todo edit item-1 item-2"
+			echo "	View item list........................todo view"
+			echo "	View bug report.......................todo view bug"
+			echo "	Backup item list......................todo backup"
+			echo "	Clear item list.......................todo clear"
+                	echo "	Recover item list after clear.........todo recover last"
+                	echo "	Recover item list from backup.........todo recover [backup]"
+                	echo "	Recover source code from saved copy...todo recover source"
+			echo "	Display where item list is stored.....todo where"
+			echo "	Modify source code....................todo modify"
+			echo "	Extract item list as pdf via latex....todo tex"
+			echo "	Extract bug report as pdf via latex...todo tex bug"
+			echo "	Display useful hints..................todo hints"
+			echo "	Report a bug 'something happened'.....todo bug something happened"
+			echo "	Save a copy of source code............todo save"
+			echo "	Update 'todo'.........................todo update"
+			echo "	Display useful hints about classes....todo class"
+			echo "	Create class of activity A............todo class add A"
+			echo "	Remove class of activity A............todo class remove A"
+			echo "	View list of activities...............todo class view"
+			echo "	View version logbook..................todo version"
+			echo 
+			echo "You can perform all the commands and the aliases with under individual activities. (Mind that A should not contain any spaces.)"
+			echo
+			echo "	Add item under A......................todo A add item"
+			echo "	Check item under A as marked..........todo A did item"
+			echo "	Uncheck item under A..................todo A undo item"
+			echo "	Remove item under A...................todo A remove item"
+			echo
+			echo "etc."	
+			echo	
+			printf '%*s\n' "${COLUMNS:-$(tput cols)}" '' | tr ' ' -
+			echo
+			echo "Version: $version"
+			echo $lastmodified
+			echo $freetouse
+			echo
+fi
+
+
+case "$1" in
+	
+	### Add item. Append addition date. Will not add empty input.
+	### Date removed. Seems buggy.
+	
+	add|a)
+		if [ -z "$2" ]
+		then
+			echo "Do not try to add an empty item."
+		else
+			echo "[ ] ${@:2}" >> $file
+		
+			$sedtype -i '/^\s*$/d' $file
+			cat $file
+		fi
+		
+		;;
+
+	### Create class, or collect some items under one title.
+	### Couldn't figure out subiteming.
+	
+	class|c)
+		case "$2" in
+			add|a)
+				echo "$3" > $classhead-$3
+				echo "A new class ($3) has been created."
+				echo "$3" >> $classlist
+				cat $classlist
+				;;
+				
+			remove|rm)
+				echo "You have removed an existing class ($3)."
+				$sedtype -i "/$3/d" $classlist
+				$sedtype -i '/^$/d' $classlist
+				cat $classlist
+				rm $classhead-$3
+				;;
+			
+			view|v)
+				cat $classlist
+				;;
+				
+			*)
+				echo "Usage:"
+				echo "	Add class A............todo class add A"
+				echo "	Remove class A.........todo class remove A"
+				echo "	View list of classes...todo class view"
+				echo 
+				echo "Mind A to be a string not containing space."
+				echo
+				echo "Once you add A:"
+				echo "	Add item to A...todo A add item"
+				echo "	Check item as marked in A...todo A did item"
+				echo "	Uncheck item in A...todo A undo item"
+				echo "	Remove item in A...todo A remove item"
+				echo "etc. All the commands for un-classed items hold true (including add, did, undo, remove, edit, view, clear, backup, recover, where)."
+				;;
+		esac
+		
+		;;
+	
+	### Mark item as done. Can mark all items. Can mark all items containing a word.
+	### Date removed. Seems buggy.
+	
+	did|d)
+		if [ -z "$2" ]
+		then
+			echo "Do not try to check a blank item."
+		elif [ "$2" == "all" ] || [ "$2" == "a" ]
+		then
+			$sedtype -i 's/^.../[x]/g' $file
+			cat $file
+		else
+			$sedtype -i -e "/$2/s/^.../[x]/g" $file
+			$sedtype -i '/^\s*$/d' $file
+			cat $file
+		fi
+		
+		;;
+	
+	### Unmark item as done. Can unmark all items. Can unmark all items containing a common word.
+	
+	undo|u)
+		if [ -z "$2" ]
+		then
+			echo "Do not try to uncheck a blank item."
+		elif [ "$2" == "all" ] || [ "$2" == "a" ]
+		then
+			$sedtype -i 's/^.../[ ]/g' $file
+			cat $file
+		else
+			$sedtype -i -e "/$2/s/^.../[ ]/g" $file
+			$sedtype -i '/^\s*$/d' $file
+			cat $file
+		fi
+		
+		;;
+
+	### Remove item from list. Empty input will not affect. Will not remove all items (see Clear).
+	
+	remove|rm)
+		for var in "${@:2}"
+		do
+			$sedtype -i "/$var/d" $file
+			$sedtype -i '/^\s*$/d' $file
+		done
+		cat $file
+		
+		;;
+	
+	### Replace one item with another. No or single input will prompt error.
+	
+	edit|e)
+		if [ ! -z "$2" ]
+		then
+			if [ -z "$3" ]
+			then
+				echo "I would not replace your item with a blank."
+			else
+				$sedtype -i -e "s/^.*\($2\)/[ ] $3/" $file
+				$sedtype -i '/^\s*$/d' $file
+				cat $file
+			fi
+		else
+			echo "Try an item to edit."
+		fi
+		
+		;;
+
+	### View to-do list or bug report. No input means to-do list. 
+	
+	view|v)
+		if [ -z $2 ]
+		then
+			if [ -s $classlist ]
+			then
+				if [ ! -s $file ]
+				then
+					echo "The main to-do list is empty, but you have the following class(es) of activities:"
+					echo 
+					while read p; do
+		
+						###
+						#cp $classhead-$p $classhead-$p.vrb
+						#$sedtype -i 's/vrbi//g' $classhead-$p
+						#$sedtype -i 's/vrbf//g' $classhead-$p
+						###
+	
+						cat $classhead-$p
+						echo
+					done <$classlist
+				else
+				
+					###
+					#cp $file $file.vrb
+					#$sedtype -i 's/vrbi//g' $file
+					#$sedtype -i 's/vrbf//g' $file
+					###
+
+					cat $file
+					echo
+					while read p; do
+
+						###
+						#cp $classhead-$p.vrb
+						#$sedtype -i 's/vrbi//g' $classhead-$p
+						#$sedtype -i 's/vrbf//g' $classhead-$p
+						###
+
+						cat $classhead-$p
+						echo
+					done <$classlist
+				fi
+			elif [ ! -s $classlist ]; then
+				if [ -s $file ]
+				then
+				
+					###
+					#cp $file $file.vrb
+					#$sedtype -i 's/vrbi//g' $file
+					#$sedtype -i 's/vrbf//g' $file
+					###
+
+					cat $file
+					echo
+					echo "You have no class of activities."
+				else
+					echo "Your to-do list is empty."
+				fi
+			fi
+		#if [ ! -s $file ]
+		#then
+		#	echo "Your to-do list is empty."
+		#elif [ -s $classlist ]
+		#then
+		#	cat $file
+		#	echo
+		#	while read p; do
+		#		cat $classhead-$p
+		#		echo 
+		#	done <$classlist
+			
+		elif [ "$2" == "bug" ] || [ "$2" == "g" ]
+		then
+			if [ ! -s $filebug ]
+			then
+				echo "Your bug report is empty."
+			else
+				cat $filebug
+			fi
+		elif [ -z "$2" ]
+		then
+			$sedtype -i '/^\s*$/d' $file
+			cat $file
+		fi
+		
+		;;
+
+	### Clear list. Produces a tmp file in case you do it accidentally.
+	
+	clear|cl)
+		mv $file $file.tmp
+		touch $file
+		cat $file
+		
+		;;
+	
+	### Create a backup file of to-do list in case you experiment with the app. 
+	
+	backup|b)
+		cp $file $file.backup
+		echo "Your list has been successfully backed up at '$file.backup'."
+		
+		;;
+	
+	### Override backup file or accidentally deleted tmp file on the existing to-do list. Useful if things are screwed. 
+	
+	recover|rc)
+		if [ "$2" == "backup" ] || [ -z "$2" ] || [ "$2" == "b" ]
+		then
+			cp $file.backup $file
+			cat $file
+		elif [ "$2" == "last" ] || [ "$2" == "l" ]
+		then
+			cp $file.tmp $file
+			cat $file
+		elif [ "$2" == "source"] || [ "$2" == "s" ]
+		then	
+			sudo cp $0.saved $0
+		else
+			echo "Run 'todo recover' or 'todo recover backup' to load backup list or 'todo recover last' to load just cleared list."
+		fi
+		
+		;;
+	
+	### Display location of to-do list and bug report.
+	
+	where|w)
+		echo "Your to-do list is stored at '$file'."
+		echo "Your bug report is stored at '$filebug'."
+		
+		;;
+
+	### Modify source code.
+	
+	modify|m)
+		vi $0
+		;;
+
+	### Produce pdf of to-do list or bug report via LaTeX. You need a tex distro installed.
+	
+	tex|t)
+		if [ -z "$2" ]
+		then
+			cd
+			cat <<- EOF > todo.tex
+			\documentclass{article}
+			\begin{document}
+			\hoffset=-1in
+			\voffset=-1in
+			\setbox0\hbox{\begin{tabular}{l}
+			\tt{My to-do list (\textit{printed} $mydate)}\\\\
+			EOF
+			
+			$0 view > .todo-tmp
+			$sedtype -i 's/^/\\tt\{/g' .todo-tmp
+			$sedtype -i 's/$/\}/g' .todo-tmp
+			$sedtype -i 's/\[/\(/g' .todo-tmp
+			$sedtype -i 's/\]/\)/g' .todo-tmp
+			$sedtype -i 's/$/\\\\/g' .todo-tmp
+			$sedtype -i 's/-/\ /g' .todo-tmp
+			$sedtype -i 's/_/\ /g' .todo-tmp
+
+			###
+			$sedtype -i 's/:b/\\verb\|/g' .todo-tmp
+			$sedtype -i 's/e:/\|/g' .todo-tmp
+			###
+
+			cat .todo-tmp >> todo.tex
+			
+			cat <<- EOF >> todo.tex
+			\end{tabular}}
+			\pdfpageheight=\dimexpr\ht0+\dp0\relax
+			\pdfpagewidth=\wd0
+			\shipout\box0
+			\stop
+			EOF
+			
+			pdflatex todo.tex
+			yes | cp -rf todo.pdf $HOME/Dropbox/
+			$pdfopener todo.pdf && rm todo.tex todo.a* todo.l*
+			
+			echo
+			echo "Your to-do list is created at '$HOME/todo.pdf'."
+			echo
+				
+		elif [ "$2" == bug ] || [ "$2" == "g" ]
+		then
+			cat <<- EOF > $dropbox/todo-bug.tex
+			\documentclass{article}
+			\begin{document}
+			\hoffset=-1in
+			\voffset=-1in
+			\setbox0\hbox{\begin{tabular}{l}
+			\texttt{Bug report (\textit{printed} $mydate)}\\\\
+			EOF
+			cp $filebug $filebug-to-tex
+			$sedtype -i 's/^/\\texttt\{/g' $filebug-to-tex
+			$sedtype -i 's/$/\}/g' $filebug-to-tex
+			$sedtype -i 's/$/\\\\/g' $filebug-to-tex
+			cat $filebug-to-tex >> $dropbox/todo-bug.tex
+			cat <<- EOF >> $dropbox/todo-bug.tex
+			\end{tabular}}
+			\pdfpageheight=\dimexpr\ht0+\dp0\relax
+			\pdfpagewidth=\wd0
+			\shipout\box0
+			\stop
+			EOF
+			pdflatex $dropbox/todo-bug.tex
+			$pdfopener $HOME/todo-bug.pdf
+			rm $HOME/todo-bug.aux $HOME/todo-bug.log $HOME/todo-bug.tex
+			echo
+			echo "Your bug report is created at '$dropbox/todo-bug.pdf'."
+		fi
+		
+		;;
+
+	### Display hints.
+	
+	hints|h)
+		echo "Hints:"
+		if [ $unix == "Linux" ]
+		then
+			echo "- 'export PATH=\$PATH:$basedir >> $HOME/.bashrc ; . $HOME/.bashrc' to run 'todo' everywhere."
+		else
+			echo "- 'sudo export PATH=\$PATH:$basedir >> /etc/bashrc ; . /etc/bashrc' to run 'todo' everywhere."
+		fi
+		echo "- I will store to-do list in your Dropbox folder if it exists; otherwise, in home folder."
+		echo "- You can add items with multiple words without quotes."
+		echo "- If you want to use space in other operations, use double quotes around."
+		echo "- 'todo remove keyword' removes all the items containing keyword."
+		echo "- Default command aliases:"
+		echo "	a=add"
+		echo "	c=class"
+		echo "	d=did"
+		echo "	u=undo"
+		echo "	rm=remove"
+		echo "	e=edit"
+		echo "	v=view"
+		echo "	cl=clear"
+		echo "	b=backup"
+		echo "	rc=recover"
+		echo "	w=where"
+		echo "	m=modify"
+		echo "	t=tex"
+		echo "	h=hints"
+		echo "	g=bug"
+		echo "	s=save"
+		echo "	up=update"
+		echo "- Default item aliases:"
+		echo "	a=all"
+		echo "	b=backup"
+		echo "	g=bug"
+		echo "	l=last"
+		echo "	s=source"
+		echo "- If you are going to use equations, then use \\\$ as if in math mode. You may also want to add some words next to it to make that item checkable."
+		echo
+		
+		;;
+	
+	### Report a bug. Produce pdf of bug report (see Tex) and send me an email at ksimsek@metu.edu.tr.
+	
+	bug|g)
+		if [ -z "$2" ]
+		then
+			echo "Do not try to file an empty bug report."
+		else
+			echo "- ${@:2}" >> $filebug
+			$sedtype -i '/^\s*$/d' $filebug
+			cat $filebug
+		fi
+		;;
+	
+	### Update 'todo'
+
+	update|up)
+		sudo wget https://www.dropbox.com/s/fh2iciuf4dodo1b/todo -O $0
+		chmod a+x $0
+		;;
+
+	### Save a copy before doing any major or risky action.
+	
+	save|s)
+		if [ -s $0.saved ]
+		then
+			sudo cp $0.saved $0.saved-$mydate
+			sudo cp $0 $0.saved
+		else
+			sudo cp $0 $0.saved
+		fi
+		echo "A copy of the source code has been stored at '$0.saved'."
+		echo "To view full save list, run 'ls -a $basedir | grep saved'."
+		echo
+		;;
+	version)
+		echo
+		echo "Version: $version"
+		echo
+		echo "Logbook:"
+		echo
+		echo "	0.1: script created"
+		echo "	0.2: 'class' option added"
+		echo "	0.2.1: verbatim mode added"
+		echo
+		exit 1
+
+esac
+
+### Entering items under classes
+
+if [ -s $classhead-$1 ]
+then
+#	echo "Please define the class first:"
+#	echo
+#	echo "todo class add $1"
+#	echo
+#else
+	#####
+	###
+	
+case "$2" in
+	
+	### Add item. Append addition date. Will not add empty input.
+	### Date removed. Seems buggy.
+	
+	add|a)
+		if [ -z "$3" ]
+		then
+			echo "Do not try to add an empty item."
+		else
+			echo "[ ] ${@:3}" >> $classhead-$1
+			$sedtype -i '/^\s*$/d' $classhead-$1
+			cat $classhead-$1
+		fi
+		
+		;;
+	
+	### Mark item as done. Can mark all items. Can mark all items containing a word.
+	### Date removed. Seems buggy.
+	
+	did|d)
+		if [ -z "$3" ]
+		then
+			echo "Do not try to check a blank item."
+		elif [ "$3" == "all" ] || [ "$3" == "a" ]
+		then
+			$sedtype -i 's/^.../[x]/g' $classhead-$1
+			cat $classhead-$1
+		else	
+			$sedtype -i -e "/$3/s/^.../[x]/g" $classhead-$1
+			$sedtype -i '/^\s*$/d' $classhead-$1
+			cat $classhead-$1
+		fi
+		
+		;;
+	
+	### Unmark item as done. Can unmark all items. Can unmark all items containing a common word.
+	
+	undo|u)
+		if [ -z "$3" ]
+		then
+			echo "Do not try to uncheck a blank item."
+		elif [ "$3" == "all" ] || [ "$3" == "a" ]
+		then
+			$sedtype -i 's/^.../[ ]/g' $classhead-$1
+			cat $classhead-$1
+		else
+			$sedtype -i -e "/$3/s/^.../[ ]/g" $classhead-$1
+			$sedtype -i '/^\s*$/d' $classhead-$1
+			cat $classhead-$1
+		fi
+		
+		;;
+
+	### Remove item from list. Empty input will not affect. Will not remove all items (see Clear).
+	
+	remove|rm)
+		for var in "${@:3}"
+		do
+			$sedtype -i "/$var/d" $classhead-$1
+			$sedtype -i '/^\s*$/d' $classhead-$1
+		done
+		cat $classhead-$1
+		
+		;;
+	
+	### Replace one item with another. No or single input will prompt error.
+	
+	edit|e)
+		if [ ! -z "$3" ]
+		then
+			if [ -z "$4" ]
+			then
+				echo "I would not replace your item with a blank."
+			else
+				$sedtype -i -e "s/^.*\($3\)/[ ] $4/" $classhead-$1
+				$sedtype -i '/^\s*$/d' $classhead-$1
+				cat $classhead-$1
+			fi
+		else
+			echo "Try an item to edit."
+		fi
+		
+		;;
+
+	### View to-do list or bug report. No input means to-do list. 
+	
+	view|v)
+		if [ ! -s $classhead-$1 ]
+		then
+			echo "Your activity is empty."
+		elif [ -s $classlist ]
+		then
+			cat $classhead-$1
+			#echo
+			#cat $classhead*
+		elif [ "$3" == "bug" ] || [ "$3" == "g" ]
+		then
+			if [ ! -s $classhead-$1bug ]
+			then
+				echo "Your bug report is empty."
+			else
+				cat $classhead-$1bug
+			fi
+		elif [ -z "$3" ]
+		then
+			$sedtype -i '/^\s*$/d' $classhead-$1
+			cat $classhead-$1
+		fi
+		
+		;;
+
+	### Clear list. Produces a tmp file in case you do it accidentally.
+	
+	clear|cl)
+		mv $classhead-$1 $classhead-$1.tmp
+		touch $classhead-$1
+		echo $1 > $classhead-$1
+		cat $classhead-$1
+		;;
+	
+	### Create a backup file of to-do list in case you experiment with the app. 
+	
+	backup|b)
+		cp $classhead-$1 $classhead-$1.backup
+		echo "Your list has been successfully backed up at '$classhead-$1.backup'."
+		
+		;;
+	
+	### Override backup file or accidentally deleted tmp file on the existing to-do list. Useful if things are screwed. 
+	
+	recover|rc)
+		if [ "$3" == "backup" ] || [ -z "$3" ] || [ "$3" == "b" ]
+		then
+			cp $classhead-$1.backup $classhead-$1
+			cat $classhead-$1
+		elif [ "$3" == "last" ] || [ "$3" == "l" ]
+		then
+			cp $classhead-$1.tmp $classhead-$1
+			cat $classhead-$1
+		elif [ "$3" == "source"] || [ "$3" == "s" ]
+		then	
+			sudo cp $0.saved $0
+		else
+			echo "Run 'todo recover' or 'todo recover backup' to load backup list or 'todo recover last' to load just cleared list."
+		fi
+		
+		;;
+	
+	### Display location of to-do list and bug report.
+	
+	where|w)
+		echo "Your to-do list is stored at '$classhead-$1'."
+		exit 1
+
+esac
+	
+	###
+	#####	
+fi
