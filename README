@@ -1,0 +1,83 @@
+Download and make executable:
+
+cd $HOME/Downloads
+chmod 755 todo
+
+Usage:
+	Add item..............................todo add item
+	Add single item with multiple words...todo add my item
+	Check item as done....................todo did item
+	Check all items as done...............todo did all
+	Uncheck item..........................todo undo item
+	Uncheck all items.....................todo undo all
+	Remove item...........................todo remove item
+	Remove multiple items.................todo remove item-1 item-2 item-3
+	Remove items containing common word...todo remove common
+	Replace item-1 with item-2............todo edit item-1 item-2
+	View item list........................todo view
+	View bug report.......................todo view bug
+	Backup item list......................todo backup
+	Clear item list.......................todo clear
+	Recover item list after clear.........todo recover last
+	Recover item list from backup.........todo recover [backup]
+	Recover source code from saved copy...todo recover source
+	Display where item list is stored.....todo where
+	Modify source code....................todo modify
+	Extract item list as pdf via latex....todo tex
+	Extract bug report as pdf via latex...todo tex bug
+	Display useful hints..................todo hints
+	Report a bug 'something happened'.....todo bug something happened
+	Save a copy of source code............todo save
+	Update 'todo'.........................todo update
+	Display useful hints about classes....todo class
+	Create class of activity A............todo class add A
+	Remove class of activity A............todo class remove A
+	View list of activities...............todo class view
+	View version logbook..................todo version
+
+You can perform all the commands and the aliases with under individual activities. (Mind that A should not contain any spaces.)
+
+	Add item under A......................todo A add item
+	Check item under A as marked..........todo A did item
+	Uncheck item under A..................todo A undo item
+	Remove item under A...................todo A remove item
+
+etc.
+
+Hints:
+- 'export PATH=$PATH:/path/to/todo >> $HOME/.bashrc ; . $HOME/.bashrc' to run 'todo' everywhere.
+- I will store to-do list in your Dropbox folder if it exists; otherwise, in home folder.
+- You can add items with multiple words without quotes.
+- If you want to use space in other operations, use double quotes around.
+- 'todo remove keyword' removes all the items containing keyword.
+- Default command aliases:
+	a=add
+	c=class
+	d=did
+	u=undo
+	rm=remove
+	e=edit
+	v=view
+	cl=clear
+	b=backup
+	rc=recover
+	w=where
+	m=modify
+	t=tex
+	h=hints
+	g=bug
+	s=save
+	up=update
+- Default item aliases:
+	a=all
+	b=backup
+	g=bug
+	l=last
+	s=source
+- If you are going to use equations, then use \$ as if in math mode. You may also want to add some words next to it to make that item checkable.
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------
+
+Version: 0.2.1
+Last modified ks 17 oct 2018
+Free to use, modify, and distribute.
