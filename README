@@ -75,6 +75,12 @@ Hints:
 	l=last
 	s=source
 - If you are going to use equations, then use \$ as if in math mode. You may also want to add some words next to it to make that item checkable.
+- Verbatim mode starts with ':v' and ends with 'v:'.
+
+Logbook:
+	0.1: script created
+	0.2: 'class' option added
+	0.2.1: verbatim mode added
 
 -------------------------------------------------------------------------------------------------------------------------------------------------------
 
